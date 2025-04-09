@@ -1,13 +1,14 @@
 {
   "name": "prettier-plugin-single-attribute-per-line-except-first",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Prettier plugin that puts each attribute on its own line, except for the first attribute",
   "main": "index.js",
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "node setup-husky.js"
   },
   "keywords": [
     "prettier",
@@ -22,11 +23,16 @@
   "peerDependencies": {
     "prettier": "^2.0.0 || ^3.0.0"
   },
+  "dependencies": {
+    "prettier": "^3.0.0"
+  },
   "devDependencies": {
     "jest": "^29.5.0",
     "prettier": "^3.0.0",
     "husky": "^8.0.3",
-    "lint-staged": "^13.2.3"
+    "lint-staged": "^13.2.3",
+    "@prettier/plugin-php": "^0.19.6",
+    "prettier-plugin-organize-imports": "^3.2.3"
   },
   "engines": {
     "node": ">=14.0.0"
