@@ -1,6 +1,6 @@
 {
   "name": "prettier-plugin-single-attribute-per-line-except-first",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Prettier plugin that puts each attribute on its own line, except for the first attribute",
   "main": "index.js",
   "scripts": {

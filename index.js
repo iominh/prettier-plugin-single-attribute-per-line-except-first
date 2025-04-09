@@ -1,9 +1,18 @@
 /**
  * Minimal version of the plugin focusing only on HTML
+ * Correctly implements singleAttributePerLineExceptFirst
  */
 const { parsers } = require("prettier/parser-html");
-const { builders } = require("prettier").doc;
-const { group, indent, hardline } = builders;
+
+// Get the doc API from prettier
+const prettier = require("prettier");
+const { builders } = prettier.doc;
+const { group, indent, hardline, line } = builders;
+
+// Helper function for debugging
+const debug = (enabled) => (msg) => {
+  if (enabled) console.log("[PLUGIN DEBUG]", msg);
+};
 
 // Only implement the HTML portion for maximum compatibility
 module.exports = {
@@ -27,67 +36,98 @@ module.exports = {
     html: {
       ...parsers.html,
       preprocess: (text) => text,
+      // Explicitly tell Prettier this parser supports our option
+      getSupportInfo() {
+        return {
+          options: [
+            {
+              name: "singleAttributePerLineExceptFirst",
+              type: "boolean",
+              default: false,
+              description:
+                "Put each attribute on its own line, except for the first attribute.",
+            },
+          ],
+        };
+      },
     },
   },
 
   printers: {
     html: {
-      print(path, options, print) {
+      print(path, opts, print) {
+        const log = debug(false); // Set to true to enable debugging
+
         const node = path.getValue();
 
         // Only apply our formatting if the option is enabled
-        if (!options.singleAttributePerLineExceptFirst) {
-          return parsers.html.printer.print(path, options, print);
+        if (!opts.singleAttributePerLineExceptFirst) {
+          log("Option disabled, using standard printer");
+          return parsers.html.printer.print(path, opts, print);
         }
 
-        // Format elements with multiple attributes
+        // Handle HTML opening tags with attributes
         if (node.type === "element" && node.attrs && node.attrs.length > 1) {
-          const tagName = node.name || "";
-          const attrs = node.attrs || [];
+          log(`Found element with ${node.attrs.length} attributes`);
 
-          // Print the first attribute
-          const firstAttr = path.call(print, "attrs", 0);
+          // Get the tag name
+          const tagName = node.name;
+          log(`Tag name: ${tagName}`);
 
-          // Calculate alignment for subsequent attributes
-          const indent = tagName.length + 2; // "<tag " length
+          // Print attributes (first one on same line, rest on their own lines)
+          const firstAttr = node.attrs[0];
+          const restAttrs = node.attrs.slice(1);
 
-          // Print rest of attributes
-          const restAttrs = attrs.slice(1).map((_, i) => {
+          // Format first attribute
+          const firstAttrDoc = path.call(print, "attrs", 0);
+          log(`First attribute formatted`);
+
+          // Calculate the position of the first attribute - this is tagName length + 1 space + 1 "<"
+          const firstAttrStart = tagName.length + 2;
+          log(`Indent for subsequent attributes: ${firstAttrStart}`);
+
+          // Format rest of attributes, each on its own line, aligned with the first attribute
+          const restAttrsDoc = restAttrs.map((_, i) => {
             return [
               hardline,
-              " ".repeat(indent),
+              " ".repeat(firstAttrStart),
               path.call(print, "attrs", i + 1),
             ];
           });
+          log(`Formatted ${restAttrsDoc.length} remaining attributes`);
 
-          // Print children, if any
-          const children =
-            node.children && node.children.length
-              ? [indent([hardline, ...path.map(print, "children")]), hardline]
-              : [];
+          // Format children
+          const childDocs = path.map(print, "children");
+          log(`Formatted ${childDocs.length} children`);
 
-          // Build the resulting doc
+          // Return the formatted element
           return group([
             "<",
             tagName,
             " ",
-            firstAttr,
-            ...restAttrs,
+            firstAttrDoc,
+            ...restAttrsDoc,
             node.selfClosing
               ? [hardline, "/>"]
               : [
+                  hardline,
                   ">",
-                  ...children,
-                  children.length ? "" : hardline,
-                  "</",
-                  tagName,
-                  ">",
+                  node.children && node.children.length > 0
+                    ? [
+                        indent([hardline, ...childDocs]),
+                        hardline,
+                        "</",
+                        tagName,
+                        ">",
+                      ]
+                    : ["</", tagName, ">"],
                 ],
           ]);
         }
 
-        // For all other cases, use the default printer
-        return parsers.html.printer.print(path, options, print);
+        // For all other nodes, use the default printer
+        log("Using default printer for non-matching node");
+        return parsers.html.printer.print(path, opts, print);
       },
     },
   },
